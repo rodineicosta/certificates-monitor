@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificates Monitor - Falhas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>⚠️ Falhas</h1>
+            <p class="subtitle">Tarefas com erro na fila de processamento</p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="section">
+            <a href="/" class="btn-back">← Voltar ao Dashboard</a>
+        </div>
+
+        <!-- Failures Table -->
+        <div class="section">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Aluno</th>
+                        <th>Curso</th>
+                        <th>Certificado</th>
+                        <th>Tentativas</th>
+                        <th>Última Atualização</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in failures %}
+                    <tr>
+                        <td>{{ task.id }}</td>
+                        <td>{{ task.student_name }}</td>
+                        <td>{{ task.course_name }}</td>
+                        <td>{{ task.has_certificate }}</td>
+                        <td><span class="badge failed">{{ task.attempts }}</span></td>
+                        <td>{{ task.updated_at.strftime('%d/%m/%Y %H:%M') if task.updated_at else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            <div class="pagination">
+                {% if page > 1 %}
+                <a href="?page={{ page - 1 }}" class="page-btn">← Anterior</a>
+                {% endif %}
+
+                <span class="page-info">Página {{ page }} de {{ total_pages }}</span>
+
+                {% if page < total_pages %}
+                <a href="?page={{ page + 1 }}" class="page-btn">Próxima →</a>
+                {% endif %}
+            </div>
+
+            <div class="total-count">Total: {{ total }} tarefas com falha</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="last-update">Sistema de Monitoramento LD-CDS</p>
+        </div>
+    </div>
+</body>
+</html>

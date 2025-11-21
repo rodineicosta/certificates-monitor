@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificates Monitor - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Sistema de Monitoramento de Certificados</h1>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card success">
+                <h3>Certificados</h3>
+                <div class="value">{{ data.total_counts.total_certificates }}</div>
+                <a href="/certificates" class="card-link">Ver todos →</a>
+            </div>
+            <div class="metric-card {% if data.total_counts.total_failed_tasks > 0 %}danger{% else %}success{% endif %}">
+                <h3>Falhas no Envio</h3>
+                <div class="value">{{ data.total_counts.total_failed_tasks }}</div>
+                <a href="/failures" class="card-link">Ver detalhes →</a>
+            </div>
+            <div class="metric-card">
+                <h3>Alunos</h3>
+                <div class="value">{{ data.total_counts.total_students }}</div>
+            </div>
+            <div class="metric-card">
+                <h3>Equipe</h3>
+                <div class="value">{{ data.total_counts.total_team_members }}</div>
+            </div>
+        </div>
+
+        <!-- Evolution Chart -->
+        <div class="section">
+            <h2>📈 Certificados Gerados nos Últimos 7 Dias</h2>
+            <canvas id="certificatesChart" style="max-height: 400px;"></canvas>
+        </div>
+
+        <!-- Integrity Checks -->
+        <div class="section">
+            <h2>🔍 Verificações de Integridade</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Verificação</th>
+                        <th>Problemas Encontrados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for check, value in data.integrity_checks.items() %}
+                    <tr>
+                        <td>{{ check.replace('_', ' ').title() }}</td>
+                        <td>
+                            <span class="badge {% if value > 0 %}warning{% else %}success{% endif %}">
+                                {{ value }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="last-update">Última atualização: {{ data.last_update }}</p>
+        </div>
+    </div>
+
+    <script>
+        // Prepare data for the chart.
+        const chartData = {{ data.certificates_by_day | tojson }};
+
+        // Extract labels (already formatted dates) and values.
+        const labels = chartData.map(item => item.date);
+        const values = chartData.map(item => item.count);
+
+        console.log('Chart Data:', chartData); // Debug
+        console.log('Labels:', labels); // Debug
+        console.log('Values:', values); // Debug
+
+        // Create chart.
+        const ctx = document.getElementById('certificatesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Certificados Gerados',
+                    data: values,
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: 'rgba(102, 126, 234, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            size: 14
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Certificados: ' + context.parsed.y;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
