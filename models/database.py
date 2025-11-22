@@ -1,5 +1,10 @@
+import os
+
+from dotenv import load_dotenv
 from utils.ssh_client import get_db_connection
 
+load_dotenv()
+prefix = os.getenv("DB_PREFIX")
 class DatabaseModel:
     """Base Class for Database Models"""
 
@@ -29,28 +34,28 @@ class CertificateModel(DatabaseModel):
     """Model for certificates table"""
 
     def get_all_certificates(self, limit=100):
-        query = """
-            SELECT * FROM wp_ldcds_certificates
+        query = f"""
+            SELECT * FROM {prefix}certificates
             ORDER BY created_at DESC
             LIMIT %s
         """
         return self.execute_query(query, (limit,))
 
     def get_certificate_stats(self):
-        query = """
+        query = f"""
             SELECT
                 status,
                 COUNT(*) as total,
                 DATE(created_at) as date
-            FROM wp_ldcds_certificates
+            FROM {prefix}certificates
             GROUP BY status, DATE(created_at)
             ORDER BY date DESC
         """
         return self.execute_query(query)
 
     def find_certificates_by_user(self, user_id):
-        query = """
-            SELECT * FROM wp_ldcds_certificates
+        query = f"""
+            SELECT * FROM {prefix}certificates
             WHERE user_id = %s
             ORDER BY created_at DESC
         """
@@ -60,21 +65,21 @@ class TemplateModel(DatabaseModel):
     """Model for templates table"""
 
     def get_active_templates(self):
-        query = """
-            SELECT * FROM wp_ldcds_templates
+        query = f"""
+            SELECT * FROM {prefix}templates
             WHERE status = 'active'
             ORDER BY name
         """
         return self.execute_query(query)
 
     def get_template_usage(self):
-        query = """
+        query = f"""
             SELECT
                 t.id,
                 t.name,
                 COUNT(c.id) as usage_count
-            FROM wp_ldcds_templates t
-            LEFT JOIN wp_ldcds_certificates c ON t.id = c.template_id
+            FROM {prefix}templates t
+            LEFT JOIN {prefix}certificates c ON t.id = c.template_id
             GROUP BY t.id, t.name
             ORDER BY usage_count DESC
         """
@@ -95,7 +100,7 @@ class MonitorModel(DatabaseModel):
         return self.execute_query(query)
 
     def get_table_info(self):
-        query = """
+        query = f"""
             SELECT
                 table_name,
                 table_rows,
@@ -103,7 +108,7 @@ class MonitorModel(DatabaseModel):
                 UPDATE_TIME as last_update
             FROM information_schema.tables
             WHERE table_schema = DATABASE()
-            AND table_name LIKE 'wp_ldcds_%'
+            AND table_name LIKE '{prefix}%'
             ORDER BY table_rows DESC
         """
         return self.execute_query(query)
