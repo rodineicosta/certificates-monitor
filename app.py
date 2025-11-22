@@ -1,13 +1,13 @@
 import atexit
-
 from datetime import datetime
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify, render_template
 
-from utils.mysql_monitor import LDCDSMonitor
+from utils.mysql_monitor import MySQLMonitor
 
 app = Flask(__name__)
-monitor = LDCDSMonitor()
+monitor = MySQLMonitor()
 scheduler = BackgroundScheduler()
 
 # Cache for monitoring data.
@@ -169,12 +169,34 @@ def health_check():
         }
     )
 
+
+@app.route("/api/failure-details/<int:task_id>")
+def failure_details(task_id):
+    """Get detailed information about a failed task"""
+    try:
+        details = monitor.get_failure_details(task_id)
+        return jsonify(details)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/certificate-details/<int:cert_id>")
+def certificate_details(cert_id):
+    """Get detailed information about a certificate"""
+    try:
+        details = monitor.get_certificate_details(cert_id)
+        return jsonify(details)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # Ensure connections are properly closed.
 def cleanup():
     print("[Cleanup] Shutting down application...")
     if scheduler.running:
         scheduler.shutdown()
     monitor.close()
+
 
 atexit.register(cleanup)
 
@@ -187,9 +209,9 @@ if __name__ == "__main__":
         func=update_monitoring_data,
         trigger="interval",
         minutes=5,
-        id='update_data',
-        name='Update monitoring data every 5 minutes',
-        replace_existing=True
+        id="update_data",
+        name="Update monitoring data every 5 minutes",
+        replace_existing=True,
     )
     scheduler.start()
     print("[Scheduler] Scheduler started - Updates every 5 minutes.")

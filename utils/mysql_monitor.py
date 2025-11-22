@@ -1,12 +1,19 @@
 import json
+import os
+
 import pymysql
+from dotenv import load_dotenv
 
 from config.config import DB_CONFIG
 from config.queries import MONITORING_QUERIES
 from utils.ssh_client import SSHTunnel
 
+load_dotenv()
 
-class LDCDSMonitor:
+prefix = os.getenv("DB_PREFIX")
+
+
+class MySQLMonitor:
     def __init__(self):
         self.ssh_tunnel = None
         self.connection = None
@@ -228,3 +235,195 @@ class LDCDSMonitor:
 
         cursor.close()
         return integrity_checks
+
+    def get_failure_details(self, task_id):
+        """Get detailed information about a failed task"""
+        conn = self._get_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+
+        # Get task info.
+        cursor.execute(f"SELECT * FROM {prefix}tasks_queue WHERE id = %s", (task_id,))
+        task = cursor.fetchone()
+
+        if not task:
+            cursor.close()
+            return {"error": "Task not found"}
+
+        # Parse payload.
+        payload = json.loads(task["payload"]) if task["payload"] else {}
+
+        # Extract user_id and course_id from payload.
+        user_id = payload.get("signer", {}).get("user_id")
+        course_id = payload.get("course", {}).get("course_id")
+
+        result = {"certificate": None, "user_metadata": None, "payload": payload}
+
+        # Get certificate info.
+        if user_id and course_id:
+            cursor.execute(
+                f"""
+                SELECT * FROM {prefix}certificates
+                WHERE user_id = %s AND course_id = %s
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (user_id, course_id),
+            )
+            cert = cursor.fetchone()
+            if cert:
+                result["certificate"] = {
+                    "id": cert["id"],
+                    "template_id": cert["template_id"],
+                    "student_id": cert["student_id"],
+                    "user_id": cert["user_id"],
+                    "course_id": cert["course_id"],
+                    "completed_on": (
+                        cert["completed_on"].strftime("%d/%m/%Y %H:%M")
+                        if cert["completed_on"]
+                        else None
+                    ),
+                    "expiration": cert["expiration"],
+                    "pdf_url": cert["pdf_url"],
+                    "platform_data": cert["platform_data"],
+                    "status": cert["status"],
+                    "created_at": (
+                        cert["created_at"].strftime("%d/%m/%Y %H:%M")
+                        if cert["created_at"]
+                        else None
+                    ),
+                    "updated_at": (
+                        cert["updated_at"].strftime("%d/%m/%Y %H:%M")
+                        if cert["updated_at"]
+                        else None
+                    ),
+                }
+
+                # Parse platform_data if exists.
+                if cert["platform_data"]:
+                    try:
+                        result["certificate"]["platform_data"] = json.loads(
+                            cert["platform_data"]
+                        )
+                    except:
+                        result["certificate"]["platform_data"] = cert["platform_data"]
+
+            # Get user metadata.
+            cursor.execute(
+                f"""
+                SELECT meta_value FROM wp_usermeta
+                WHERE user_id = %s AND meta_key = %s
+                """,
+                (user_id, f"_ldcds_certificate_{course_id}"),
+            )
+            metadata = cursor.fetchone()
+            if metadata and metadata["meta_value"]:
+                try:
+                    result["user_metadata"] = json.loads(metadata["meta_value"])
+                except:
+                    result["user_metadata"] = metadata["meta_value"]
+
+        cursor.close()
+        return result
+
+    def get_certificate_details(self, cert_id):
+        """Get detailed information about a certificate"""
+        conn = self._get_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+
+        # Get certificate info.
+        cursor.execute(
+            f"""
+            SELECT * FROM {prefix}certificates
+            WHERE id = %s
+            """,
+            (cert_id,),
+        )
+        cert = cursor.fetchone()
+
+        if not cert:
+            cursor.close()
+            return {"error": "Certificate not found"}
+
+        result = {"certificate": None, "student": None, "course": None}
+
+        # Format certificate data.
+        result["certificate"] = {
+            "id": cert["id"],
+            "template_id": cert["template_id"],
+            "student_id": cert["student_id"],
+            "user_id": cert["user_id"],
+            "course_id": cert["course_id"],
+            "completed_on": (
+                cert["completed_on"].strftime("%d/%m/%Y %H:%M")
+                if cert["completed_on"]
+                else None
+            ),
+            "expiration": cert["expiration"],
+            "pdf_url": cert["pdf_url"],
+            "platform_data": cert["platform_data"],
+            "status": cert["status"],
+            "created_at": (
+                cert["created_at"].strftime("%d/%m/%Y %H:%M")
+                if cert["created_at"]
+                else None
+            ),
+            "updated_at": (
+                cert["updated_at"].strftime("%d/%m/%Y %H:%M")
+                if cert["updated_at"]
+                else None
+            ),
+        }
+
+        # Parse platform_data if exists.
+        if cert["platform_data"]:
+            try:
+                result["certificate"]["platform_data"] = json.loads(
+                    cert["platform_data"]
+                )
+            except:
+                result["certificate"]["platform_data"] = cert["platform_data"]
+
+        # Get student info.
+        cursor.execute(
+            f"""
+            SELECT * FROM {prefix}students
+            WHERE id = %s
+            """,
+            (cert["student_id"],),
+        )
+        student = cursor.fetchone()
+        if student:
+            result["student"] = {
+                "id": student["id"],
+                "name": student["name"],
+                "email": student["email"],
+                "cpf": student["cpf"],
+                "phone": student["phone"],
+                "position": student["position"],
+                "sector": student["sector"],
+                "created_at": (
+                    student["created_at"].strftime("%d/%m/%Y %H:%M")
+                    if student["created_at"]
+                    else None
+                ),
+            }
+
+        # Get course info.
+        cursor.execute(
+            f"""
+            SELECT ID, post_title, post_name, post_status
+            FROM wp_posts
+            WHERE ID = %s AND post_type = 'sfwd-courses'
+            """,
+            (cert["course_id"],),
+        )
+        course = cursor.fetchone()
+        if course:
+            result["course"] = {
+                "id": course["ID"],
+                "title": course["post_title"],
+                "slug": course["post_name"],
+                "status": course["post_status"],
+            }
+
+        cursor.close()
+        return result

@@ -28,6 +28,7 @@
                         <th>Curso</th>
                         <th>Status</th>
                         <th>Data de Criação</th>
+                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -38,6 +39,11 @@
                         <td>{{ cert.course_name }}</td>
                         <td><span class="badge {{ cert.status }}">{{ cert.status }}</span></td>
                         <td>{{ cert.created_at.strftime('%d/%m/%Y %H:%M') if cert.created_at else 'N/A' }}</td>
+                        <td>
+                            <button class="btn-details" onclick="showCertificateDetails('{{ cert.id }}')">
+                                Detalhes
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -64,5 +70,18 @@
             <p class="last-update">Sistema de Monitoramento LD-CDS</p>
         </div>
     </div>
+
+    <!-- Modal -->
+    <div id="certificateModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('certificate')">&times;</span>
+            <h2>Detalhes do Certificado</h2>
+            <div id="certificateModalContent">
+                <p>Carregando...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

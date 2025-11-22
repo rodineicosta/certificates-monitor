@@ -30,6 +30,7 @@
                         <th>Certificado</th>
                         <th>Tentativas</th>
                         <th>Última Atualização</th>
+                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -41,6 +42,11 @@
                         <td>{{ task.has_certificate }}</td>
                         <td><span class="badge failed">{{ task.attempts }}</span></td>
                         <td>{{ task.updated_at.strftime('%d/%m/%Y %H:%M') if task.updated_at else 'N/A' }}</td>
+                        <td>
+                            <button class="btn-details" onclick="showFailuresDetails('{{ task.id }}')">
+                                Detalhes
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -67,5 +73,18 @@
             <p class="last-update">Sistema de Monitoramento LD-CDS</p>
         </div>
     </div>
+
+    <!-- Modal -->
+    <div id="failuresModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('failures')">&times;</span>
+            <h2>Detalhes da Falha</h2>
+            <div id="modalContent">
+                <p>Carregando...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
